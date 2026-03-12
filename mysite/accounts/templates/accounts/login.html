@@ -1,12 +1,22 @@
+{% load socialaccount %}
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Login</title>
+    <title>Login Page</title>
 </head>
 <body>
 
-<h1>Welcome</h1>
-<p>Login system coming soon.</p>
+<h1>Welcome to ProND</h1>
+<h2> Landing Page </h2>
+{% if user.is_authenticated %}
+    <p>Logged in as: {{user.username}}</p>
+    <form method="post" action="{% url 'account_logout' %}">
+        {% csrf_token %}
+        <button type="submit"> Log out</button>
+    </form>
+{% else %}
+    <a href="{% provider_login_url 'google' %}"> Log in with Google </a>
 
+{% endif %}
 </body>
 </html>
