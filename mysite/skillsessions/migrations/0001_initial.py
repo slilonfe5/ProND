@@ -12,7 +12,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
-        ("accounts", "0002_alter_skill_unique_together_and_more"),
+        ("accounts", "0002_skill_models"),
     ]
 
     operations = [
