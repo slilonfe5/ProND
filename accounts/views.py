@@ -11,6 +11,8 @@ def login_page(request):
         return redirect('session_list')
     return render(request, "accounts/login.html")
 
+def about_page(request):
+    return render(request, 'accounts/about.html')
 
 @login_required
 def profile_view(request): # view own profile - get profile info + Skills
