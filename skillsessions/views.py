@@ -14,7 +14,8 @@ from .forms import SessionForm, SessionMessageForm, SessionMessageEditForm
 @login_required
 def session_list(request): # main page - list session upcoming in chronological order
     sessions = Session.objects.filter(
-        date_time__gte=timezone.now()
+        date_time__gte=timezone.now(),
+        is_cancelled=False
     ).order_by('date_time').select_related('skill', 'host')
     return render(request, 'sessions/session_list.html', {
         'sessions': sessions,
@@ -209,3 +210,16 @@ def session_message_delete(request, pk, message_id):
         messages.success(request, 'Message deleted.')
 
     return redirect('session_detail', pk=pk)
+
+@login_required
+def cancel_session(request, session_id):
+    session = get_object_or_404(Session, id=session_id)
+
+    if session.creator != request.user:
+        return HttpResponseForbidden("You cannot cancel this session.")
+
+    session.is_cancelled = True
+    session.cancelled_at = timezone.now()
+    session.save()
+
+    return redirect("session_detail", session_id=session.id)
