@@ -5,6 +5,8 @@
 {% block content %}
 <h2>{{ profile_user.get_full_name|default:profile_user.username }}</h2>
 
+
+
 <h4>Bio</h4>
 <p>{{ profile.bio|default:"No bio yet." }}</p>
 
@@ -21,4 +23,9 @@
 {% else %}
 <p>No skills listed.</p>
 {% endif %}
+
+{% if user.is_authenticated and user != profile_user %}
+<a href="{% url 'send_message' profile_user.id %}" class="btn btn-primary"> Send Message </a>
+{% endif %}
+
 {% endblock %}
