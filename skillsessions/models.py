@@ -18,6 +18,8 @@ class Session(models.Model): # session model - meeting for skill, fk to Skill an
     capacity = models.PositiveIntegerField(validators=[MinValueValidator(1)])
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    is_cancelled = models.BooleanField(default=False)
+    cancelled_at = models.DateTimeField(null=True, blank=True)
 
     def clean(self):
         if self.skill_id and self.host_id and self.skill.owner != self.host:

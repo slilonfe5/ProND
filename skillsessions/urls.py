@@ -10,4 +10,5 @@ urlpatterns = [
     path('<int:pk>/messages/<int:message_id>/delete/', views.session_message_delete, name='session_message_delete'),
     path('<int:pk>/join/', views.session_join, name='session_join'),
     path('<int:pk>/leave/', views.session_leave, name='session_leave'),
+    path("sessions/<int:session_id>/cancel/", views.cancel_session, name="cancel_session"),
 ]

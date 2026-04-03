@@ -6,18 +6,49 @@ from django.contrib import messages
 from django.utils import timezone
 from django.db import transaction
 from django.http import HttpResponseForbidden
+from django.urls import reverse
 from accounts.models import Skill
 from .models import Session, SessionMembership, SessionMessage
 from .forms import SessionForm, SessionMessageForm, SessionMessageEditForm
 
 
 @login_required
-def session_list(request): # main page - list session upcoming in chronological order
-    sessions = Session.objects.filter(
-        date_time__gte=timezone.now()
-    ).order_by('date_time').select_related('skill', 'host')
+def session_list(request): # main page - list all sessions for calendar + list view
+    now = timezone.now()
+    all_sessions = Session.objects.order_by('date_time').select_related('skill', 'host')
+    sessions = all_sessions.filter(date_time__gte=now, is_cancelled=False)
+
+    # session IDs the current user has joined - one query
+    joined_ids = set(
+        SessionMembership.objects.filter(
+            user=request.user
+        ).values_list('session_id', flat=True)
+    )
+
+    # build calendar event list with status for each session
+    calendar_events = []
+    for session in all_sessions:
+        if session.is_cancelled:
+            status = 'cancelled'
+        elif session.date_time < now:
+            status = 'past'
+        elif session.host == request.user:
+            status = 'hosting'
+        elif session.pk in joined_ids:
+            status = 'joined'
+        else:
+            status = 'open'
+
+        calendar_events.append({
+            'title': session.title,
+            'start': session.date_time.isoformat(),
+            'url': reverse('session_detail', args=[session.pk]),
+            'status': status,
+        })
+
     return render(request, 'sessions/session_list.html', {
         'sessions': sessions,
+        'calendar_events': calendar_events,
     })
 
 
@@ -209,3 +240,16 @@ def session_message_delete(request, pk, message_id):
         messages.success(request, 'Message deleted.')
 
     return redirect('session_detail', pk=pk)
+
+@login_required
+def cancel_session(request, session_id):
+    session = get_object_or_404(Session, id=session_id)
+
+    if session.host != request.user:
+        return HttpResponseForbidden("You cannot cancel this session.")
+
+    session.is_cancelled = True
+    session.cancelled_at = timezone.now()
+    session.save()
+
+    return redirect("session_detail", pk=session.id)

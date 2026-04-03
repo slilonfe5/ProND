@@ -28,6 +28,18 @@
     <div class="alert alert-secondary">This session has passed.</div>
 {% elif is_host %}
     <div class="alert alert-info">You are hosting this session.</div>
+
+    {% if not session.is_cancelled %}
+        <form method="post" action="{% url 'cancel_session' session.id %}">
+            {% csrf_token %}
+            <button 
+                type="submit"
+                class="btn btn-danger"
+                onclick="return confirm('Are you sure you want to cancel this session?')">
+                Cancel Session
+            </button>
+        </form>
+    {% endif %}
 {% elif is_member %}
     <form method="post" action="{% url 'session_leave' session.pk %}">
         {% csrf_token %}
@@ -126,5 +138,9 @@
     <div class="alert alert-secondary mb-0">
         Join this session to view and send chat messages.
     </div>
+{% endif %}
+
+{% if session.is_cancelled %}
+    <p>This session has been cancelled.</p>
 {% endif %}
 {% endblock %}
