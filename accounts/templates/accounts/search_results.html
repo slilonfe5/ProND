@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% block title %}Search Results — ProND{% endblock %}
+
+{% block content %}
+<h2 class="mb-4">Search Results for "{{ query }}"</h2>
+
+{% if results %}
+    <div class="list-group">
+        {% for user in results %}
+            <a href="{% url 'profile_detail' user.id %}" class="list-group-item list-group-item-action">
+                <div class="d-flex w-100 justify-content-between">
+                    <h5 class="mb-1">{{ user.get_full_name|default:user.username }}</h5>
+                    <small>@{{ user.username }}</small>
+                </div>
+                <p class="mb-1">Skills: {{ user.skills.all|join:", " }}</p>
+            </a>
+        {% endfor %}
+    </div>
+{% else %}
+    <div class="alert alert-warning">No profiles found matching your search.</div>
+{% endif %}
+{% endblock %}

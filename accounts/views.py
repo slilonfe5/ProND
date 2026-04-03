@@ -4,7 +4,9 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.contrib import messages
 from django.utils import timezone
-from .models import Profile, Skill
+from django.db.models import Q, Max
+from django.contrib.auth.models import User
+from .models import Profile, Skill, PrivateMessage
 from .forms import ProfileForm, SkillForm
 def login_page(request):
     if request.user.is_authenticated:
@@ -84,4 +86,77 @@ def profile_detail(request, user_id): # view other profile - pretty basic, read 
         'profile_user': profile_user,
         'profile': profile,
         'skills': skills,
+    })
+
+@login_required
+def profile_search(request):
+    query = request.GET.get('q') # get the text entered into the search bar
+    if query:
+        # search by username, first name, or last name using Q module
+        results = User.objects.filter(
+            # dynamically generate Q objects
+            # {field}__icontains
+            Q(username__icontains=query) |
+            Q(first_name__icontains=query) |
+            Q(last_name__icontains=query)
+        ).distinct() # get only one
+    else:
+        results = User.objects.none() # return none instead of crashing
+
+    return render(request, 'accounts/search_results.html', {
+        'results': results,
+        'query': query
+    })
+
+
+@login_required
+def inbox(request):
+    # find all messages sent or received
+    all_messages = PrivateMessage.objects.filter(
+        Q(sender=request.user) | Q(receiver=request.user)
+    ).order_by('-timestamp')
+
+    # we want to keep only one thread per sender - receiver open
+    users_seen = set()
+    latest_messages = []
+
+    # sort by timestamp descending to get newest first
+    for msg in all_messages.order_by('-timestamp'):
+
+        # determine who "other" is in this context
+        if msg.sender == request.user:
+            other_user = msg.receiver
+        else:
+            other_user = msg.sender
+
+        if other_user.id not in users_seen:
+            latest_messages.append(msg)
+            users_seen.add(other_user.id)
+
+    return render(request, 'accounts/inbox.html', {'messages': latest_messages})
+
+@login_required
+def send_message(request, receiver_id):
+    receiver = get_object_or_404(User, id=receiver_id)
+
+    if request.method == 'POST':
+        content = request.POST.get('content')
+        if content:
+            # create private message object
+            PrivateMessage.objects.create(
+                sender=request.user,
+                receiver=receiver,
+                content=content
+            )
+            return redirect('chat_detail', receiver_id=receiver_id)
+
+    # get chat history between two users
+    chat_history = PrivateMessage.objects.filter(
+        (Q(sender=request.user) & Q(receiver=receiver)) |
+        (Q(sender=receiver) & Q(receiver = request.user))
+    ).order_by('timestamp')
+
+    return render(request, 'accounts/chat_detail.html', {
+        'receiver': receiver,
+        'chat_history': chat_history
     })

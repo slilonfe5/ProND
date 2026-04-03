@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>My Messages</h2>
+<br>
+
+<div class="list-group shadow-sm">
+    {% for msg in messages %}
+        {% if msg.sender == request.user %}
+            <a href="{% url 'chat_detail' receiver_id=msg.receiver.id %}" class="list-group-item list-group-item-action py-3">
+                <div class="d-flex w-100 justify-content-between">
+                    <h5 class="text-primary">To: {{ msg.receiver.username }}</h5>
+                    <small class="text-muted">{{ msg.timestamp|date:"M d, P" }}</small>
+                </div>
+                <p class="mb-1 text-truncate text-secondary">{{ msg.content }}</p>
+            </a>
+        {% else %}
+            <a href="{% url 'chat_detail' receiver_id=msg.sender.id %}" class="list-group-item list-group-item-action py-3">
+                <div class="d-flex w-100 justify-content-between">
+                    <h5 class="text-primary">From: {{ msg.sender.username }}</h5>
+                    <small class="text-muted">{{ msg.timestamp|date:"M d, P" }}</small>
+                </div>
+                <p class="mb-1 text-truncate text-secondary">{{ msg.content }}</p>
+            </a>
+        {% endif %}
+    {% empty %}
+        <div class="alert alert-light border text-center py-5">
+            <p class="text-muted">Your inbox is empty.</p>
+        </div>
+    {% endfor %}
+</div>
+{% endblock %}

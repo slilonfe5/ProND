@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Chat with {{ receiver.first_name }} {{ receiver.last_name }}</h2>
+
+<div class="chat-box border p-3 mb-3" style="height: 500px; overflow-y: scroll;">
+    {% for msg in chat_history %}
+        <div class="mb-2 border-bottom pb-1">
+            <strong>
+                {% if msg.sender == request.user %}You
+                {% else %}{{ msg.sender.first_name}} {{msg.sender.last_name}}
+                {% endif %}:
+            </strong> 
+            <span>{{ msg.content }}</span>
+            <span class="text-muted" style="float: right;">{{ msg.timestamp|date:"g:i A" }}</span>
+        </div>
+    {% empty %}
+        <p class="text-muted">No messages yet.</p>
+    {% endfor %}
+</div>
+
+<form method="post">
+    {% csrf_token %}
+    <div class="input-group">
+        <input type="text" name="content" class="form-control" placeholder="Send a message" required autocomplete="off">
+        <button type="submit" class="btn btn-primary">Send</button>
+    </div>
+    <a href="{% url 'inbox' %}" class="btn p-0"> Back</a>
+</form>
+{% endblock %}
