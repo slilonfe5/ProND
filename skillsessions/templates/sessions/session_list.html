@@ -5,6 +5,37 @@
 {% block content %}
 <h2>Upcoming Sessions</h2>
 
+<div class="d-flex gap-3 mb-2">
+    <span><span style="display:inline-block;width:12px;height:12px;background:#0d6efd;border-radius:2px"></span> Hosting</span>
+    <span><span style="display:inline-block;width:12px;height:12px;background:#198754;border-radius:2px"></span> Joined</span>
+    <span><span style="display:inline-block;width:12px;height:12px;background:#ffc107;border-radius:2px"></span> Open</span>
+    <span><span style="display:inline-block;width:12px;height:12px;background:#6c757d;border-radius:2px"></span> Past</span>
+    <span><span style="display:inline-block;width:12px;height:12px;background:#dc3545;border-radius:2px"></span> Cancelled</span>
+</div>
+<div id="calendar" class="mb-4"></div>
+{{ calendar_events|json_script:"calendar-events" }}
+
+<script>
+    const statusColors = {
+        past:      '#6c757d',
+        hosting:   '#0d6efd',
+        joined:    '#198754',
+        open:      '#ffc107',
+        cancelled: '#dc3545',
+    };
+
+    const events = JSON.parse(document.getElementById('calendar-events').textContent);
+    events.forEach(e => { e.color = statusColors[e.status] || '#6c757d'; });
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const cal = new FullCalendar.Calendar(document.getElementById('calendar'), {
+            initialView: 'dayGridMonth',
+            events: events,
+        });
+        cal.render();
+    });
+</script>
+
 {% if sessions %}
 {% for session in sessions %}
 <div class="card mb-3">
