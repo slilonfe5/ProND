@@ -267,3 +267,8 @@ def send_message(request, receiver_id):
         'receiver': receiver,
         'chat_history': chat_history
     })
+
+@login_required
+def browse_sharers(request):
+    sharers = User.objects.all().order_by('username').prefetch_related('skills', 'profile') # Get all users
+    return render(request, 'accounts/browse_sharers.html', {'sharers' : sharers})

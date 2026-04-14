@@ -1,9 +1,8 @@
 from django.urls import path
 from .views import (
-    login_page, about_page, profile_view, profile_edit, profile_detail,
-    skill_search, session_request_create, session_request_cancel, session_requests_inbox,
+    login_page, about_page, profile_view, profile_edit, profile_detail, send_message, profile_search, inbox,
+    skill_search, session_request_create, session_request_cancel, session_requests_inbox, browse_sharers
 )
-from .views import login_page, about_page, profile_view, profile_edit, profile_detail, profile_search, inbox, send_message
 
 urlpatterns = [
     path('', login_page, name='login'),
@@ -18,5 +17,6 @@ urlpatterns = [
     path('search/', profile_search, name='profile_search'),
     path('inbox/', inbox, name='inbox'),
     path('messages/send/<int:receiver_id>/', send_message, name='send_message'),
-    path('messages/chat/<int:receiver_id>/', send_message, name='chat_detail')
+    path('messages/chat/<int:receiver_id>/', send_message, name='chat_detail'),
+    path('sharers/', browse_sharers, name='browse_sharers')
 ]

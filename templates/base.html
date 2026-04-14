@@ -37,22 +37,27 @@
                 </form>
                 <ul class="navbar-nav me-auto">
                     <li class="nav-item">
-                        <a class="nav-link" href="{% url 'session_list' %}">Sessions</a>
+                        <a class="nav-link" href="{% url 'skill_search' %}">Search Skills</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'browse_sharers' %}"> Meet Skill Sharers </a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="{% url 'session_create' %}">Create Session</a>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{% url 'skill_search' %}">Search Skills</a>
-                    </li>
+                    
                     <li class="nav-item">
                         <a class="nav-link" href="{% url 'session_requests_inbox' %}">Requests</a>
-                        <a class="nav-link" href="{% url 'inbox' %}"> My Messages</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="{% url 'profile_view' %}">My Profile</a>
                     </li>
-
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'session_list' %}">My Sessions</a>
+                    </li>
+                    <li>
+                        <a class="nav-link" href="{% url 'inbox' %}">My Messages</a>
+                    </li>
                 </ul>
                 <ul class="navbar-nav">
                     <li class="nav-item">

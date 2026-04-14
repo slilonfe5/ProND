@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block content %}
+<h2 class="mb-4">Explore Popular Skill Sharers!</h2>
+<div class="row row-cols-1 row-cols-md-3 g-3">
+    {% for sharer in sharers %}
+        <div class="col">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center mb-2">
+                    {% if sharer.profile.photo %}
+                        <img src="{{sharer.profile.photo.url}}" alt="Profile photo" class="rounded-circle me-3" style="width:80px;height:80px;object-fit:cover;">
+                    {% endif %}
+                    <h5 class="card-title"> {{sharer.username}} </h5>
+                </div>
+                {% if sharer.profile %}
+                    <p class="text-muted"> {{sharer.profile.bio }} </p>
+                {% endif %}
+                {% for skill in sharer.skills.all %}
+                    <small class="text-muted">Skills:</small>
+                    <span class="badge bg-success">{{skill.name}}</span>
+                {% empty %}
+                    <small class="text-muted"> No skills listed. </small>
+                {% endfor %}
+                <br>
+            </div>
+            <div class="card-footer">
+                <a href="{% url 'profile_detail' sharer.id %}" class="btn btn-outline-primary btn-sm"> View Profile</a>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+
+{% endblock %}
