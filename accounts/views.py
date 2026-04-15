@@ -133,18 +133,24 @@ def profile_search(request):
     query = request.GET.get('q') # get the text entered into the search bar
     if query:
         # search by username, first name, or last name using Q module
-        results = User.objects.filter(
+        name_results = User.objects.filter(
             # dynamically generate Q objects
             # {field}__icontains
             Q(username__icontains=query) |
             Q(first_name__icontains=query) |
             Q(last_name__icontains=query)
         ).distinct() # get only one
+        skill_results = Skill.objects.filter(
+            name__icontains=query
+        ).select_related('owner')
     else:
-        results = User.objects.none() # return none instead of crashing
+        name_results = User.objects.none()
+        skill_results = Skill.objects.none()
+
 
     return render(request, 'accounts/search_results.html', {
-        'results': results,
+        'name_results': name_results,
+        'skill_results': skill_results,
         'query': query
     })
 
