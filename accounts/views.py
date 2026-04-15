@@ -10,6 +10,7 @@ from django.db.models import Q, Max
 from django.contrib.auth.models import User
 from .models import Profile, Skill, PrivateMessage
 from .forms import ProfileForm, SkillForm
+from skillsessions.models import Session
 def login_page(request):
     if request.user.is_authenticated:
         return redirect('session_list')
@@ -140,17 +141,26 @@ def profile_search(request):
             Q(first_name__icontains=query) |
             Q(last_name__icontains=query)
         ).distinct() # get only one
+
         skill_results = Skill.objects.filter(
             name__icontains=query
-        ).select_related('owner')
+            ).select_related('owner')
+
+        session_results = Session.objects.filter(
+            Q(title__icontains=query) |
+            Q(description__icontains=query),
+            is_cancelled=False
+            ).select_related('host', 'skill')
     else:
         name_results = User.objects.none()
         skill_results = Skill.objects.none()
+        session_results = Session.objects.none()
 
 
     return render(request, 'accounts/search_results.html', {
         'name_results': name_results,
         'skill_results': skill_results,
+        'session_results': session_results,
         'query': query
     })
 
