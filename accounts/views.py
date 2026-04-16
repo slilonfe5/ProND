@@ -91,10 +91,21 @@ def profile_detail(request, user_id): # view other profile - pretty basic, read 
         .select_related('skill')
         .order_by('date_time')
     )
+    skill_rows = []
+    if request.user.is_authenticated and request.user != profile_user:
+        my_requests = {
+            sr.skill_id: sr
+            for sr in SessionRequest.objects.filter(requester=request.user, skill__in=skills)
+        }
+        for skill in skills:
+            skill_rows.append({'skill': skill, 'my_request': my_requests.get(skill.id)})
+    else:
+        for skill in skills:
+            skill_rows.append({'skill': skill, 'my_request': None})
     return render(request, 'accounts/profile_detail.html', {
         'profile_user': profile_user,
         'profile': profile,
-        'skills': skills,
+        'skill_rows': skill_rows,
         'upcoming_sessions': upcoming_sessions,
     })
 

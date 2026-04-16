@@ -16,12 +16,31 @@
 <p>{{ profile.bio|default:"No bio yet." }}</p>
 
 <h4>Skills</h4>
-{% if skills %}
-<ul>
-    {% for skill in skills %}
-    <li>
-        <strong>{{ skill.name }}</strong>
-        {% if skill.description %} — {{ skill.description }}{% endif %}
+{% if skill_rows %}
+<ul class="list-unstyled">
+    {% for row in skill_rows %}
+    <li class="d-flex align-items-center justify-content-between mb-2">
+        <div>
+            <strong>{{ row.skill.name }}</strong>
+            {% if row.skill.description %}<span class="text-muted"> — {{ row.skill.description }}</span>{% endif %}
+        </div>
+        {% if user != profile_user %}
+            {% if row.my_request %}
+                {% if row.my_request.status == 'pending' %}
+                <span class="badge bg-warning text-dark ms-2">Request pending</span>
+                <form method="post" action="{% url 'session_request_cancel' row.my_request.id %}" class="d-inline ms-1">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-outline-secondary btn-sm">Cancel</button>
+                </form>
+                {% elif row.my_request.status == 'accepted' %}
+                <span class="badge bg-success ms-2">Accepted</span>
+                {% elif row.my_request.status == 'declined' %}
+                <span class="badge bg-danger ms-2">Declined</span>
+                {% endif %}
+            {% else %}
+            <a href="{% url 'session_request_create' row.skill.id %}" class="btn btn-outline-primary btn-sm ms-2">Request Session</a>
+            {% endif %}
+        {% endif %}
     </li>
     {% endfor %}
 </ul>
