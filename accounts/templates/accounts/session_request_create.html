@@ -9,13 +9,69 @@
     <a href="{% url 'profile_detail' skill.owner.id %}">{{ skill.owner.get_full_name|default:skill.owner.username }}</a>
     for their skill: <strong>{{ skill.name }}</strong>
 </p>
+<p class="text-muted">Fill in the details you'd like for the session. If accepted, it will be created exactly as proposed.</p>
 
-<form method="post" class="mt-3" style="max-width:500px;">
+<form method="post" class="mt-3" style="max-width:540px;">
     {% csrf_token %}
+
+    <h5 class="mb-3">Session Details</h5>
+
     <div class="mb-3">
-        <label class="form-label">Message (optional)</label>
+        <label class="form-label fw-semibold">{{ form.proposed_title.label }}</label>
+        {{ form.proposed_title }}
+        {% if form.proposed_title.errors %}
+        <div class="text-danger small mt-1">{{ form.proposed_title.errors }}</div>
+        {% endif %}
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label fw-semibold">{{ form.proposed_location.label }}</label>
+        {{ form.proposed_location }}
+        {% if form.proposed_location.errors %}
+        <div class="text-danger small mt-1">{{ form.proposed_location.errors }}</div>
+        {% endif %}
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label fw-semibold">{{ form.proposed_date_time.label }}</label>
+        {{ form.proposed_date_time }}
+        {% if form.proposed_date_time.errors %}
+        <div class="text-danger small mt-1">{{ form.proposed_date_time.errors }}</div>
+        {% endif %}
+    </div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-6">
+            <label class="form-label fw-semibold">{{ form.proposed_duration_minutes.label }}</label>
+            {{ form.proposed_duration_minutes }}
+            {% if form.proposed_duration_minutes.errors %}
+            <div class="text-danger small mt-1">{{ form.proposed_duration_minutes.errors }}</div>
+            {% endif %}
+        </div>
+        <div class="col-6">
+            <label class="form-label fw-semibold">{{ form.proposed_capacity.label }}</label>
+            {{ form.proposed_capacity }}
+            {% if form.proposed_capacity.errors %}
+            <div class="text-danger small mt-1">{{ form.proposed_capacity.errors }}</div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label fw-semibold">{{ form.proposed_description.label }}</label>
+        {{ form.proposed_description }}
+        {% if form.proposed_description.errors %}
+        <div class="text-danger small mt-1">{{ form.proposed_description.errors }}</div>
+        {% endif %}
+    </div>
+
+    <hr class="my-4">
+
+    <div class="mb-3">
+        <label class="form-label">{{ form.message.label }}</label>
         {{ form.message }}
     </div>
+
     <button type="submit" class="btn btn-primary">Send Request</button>
     <a href="{% url 'skill_search' %}" class="btn btn-outline-secondary ms-2">Cancel</a>
 </form>

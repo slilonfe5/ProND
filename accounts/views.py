@@ -10,7 +10,7 @@ from django.db.models import Q, Max
 from django.contrib.auth.models import User
 from .models import Profile, Skill, PrivateMessage
 from .forms import ProfileForm, SkillForm
-from skillsessions.models import Session
+from skillsessions.models import Session, SessionMembership
 def login_page(request):
     if request.user.is_authenticated:
         return redirect('session_list')
@@ -85,10 +85,17 @@ def profile_detail(request, user_id): # view other profile - pretty basic, read 
     profile_user = get_object_or_404(User, id=user_id)
     profile = Profile.objects.filter(user=profile_user).first()
     skills = Skill.objects.filter(owner=profile_user)
+    upcoming_sessions = (
+        Session.objects
+        .filter(host=profile_user, date_time__gte=timezone.now(), is_cancelled=False)
+        .select_related('skill')
+        .order_by('date_time')
+    )
     return render(request, 'accounts/profile_detail.html', {
         'profile_user': profile_user,
         'profile': profile,
         'skills': skills,
+        'upcoming_sessions': upcoming_sessions,
     })
 
 
@@ -218,14 +225,24 @@ def session_requests_inbox(request):
         sr_id = request.POST.get('request_id')
         action = request.POST.get('action')
         sr = get_object_or_404(SessionRequest, id=sr_id, skill__owner=request.user)
+        requester_name = sr.requester.get_full_name() or sr.requester.username
         if action == 'accept':
-            sr.status = SessionRequest.STATUS_ACCEPTED
-            sr.save()
-            messages.success(request, f'Accepted request from {sr.requester.get_full_name() or sr.requester.username}.')
+            session = Session.objects.create(
+                skill=sr.skill,
+                host=sr.skill.owner,
+                title=sr.proposed_title,
+                description=sr.proposed_description or '',
+                location=sr.proposed_location,
+                date_time=sr.proposed_date_time,
+                duration_minutes=sr.proposed_duration_minutes,
+                capacity=sr.proposed_capacity,
+            )
+            SessionMembership.objects.create(session=session, user=sr.requester)
+            sr.delete()
+            messages.success(request, f'Accepted! Session "{session.title}" created and {requester_name} has been added.')
         elif action == 'decline':
-            sr.status = SessionRequest.STATUS_DECLINED
-            sr.save()
-            messages.success(request, f'Declined request from {sr.requester.get_full_name() or sr.requester.username}.')
+            sr.delete()
+            messages.success(request, f'Declined request from {requester_name}.')
         return redirect('session_requests_inbox')
 
     return render(request, 'accounts/session_requests_inbox.html', {
