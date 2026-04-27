@@ -12,65 +12,134 @@
 </form>
 
 {% if query %}
-    {% if results %}
-    <p class="text-muted">{{ results|length }} result{{ results|length|pluralize }} for "<strong>{{ query }}</strong>"</p>
-    <div class="row row-cols-1 row-cols-md-2 g-3">
-        {% for r in results %}
+
+    {% if results.users %}
+    <h5 class="mt-4">Users</h5>
+
+    <div class="row row-cols-1 g-3">
+        {% for user in results.users %}
         <div class="col">
-            <div class="card h-100">
+            <div class="card h-100 position-relative">
                 <div class="card-body">
-                    <div class="d-flex align-items-center gap-3 mb-2">
-                        {% if r.profile and r.profile.photo %}
-                        <img src="{{ r.profile.photo.url }}" alt="{{ r.owner.get_full_name|default:r.owner.username }}"
-                             class="rounded-circle" style="width:56px;height:56px;object-fit:cover;flex-shrink:0;">
-                        {% else %}
-                        <div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center text-white fw-bold"
-                             style="width:56px;height:56px;flex-shrink:0;font-size:1.2rem;">
-                            {{ r.owner.get_full_name|default:r.owner.username|slice:":1"|upper }}
-                        </div>
+                    <a href="{% url 'profile_detail' user.id %}" class="stretched-link"></a>
+                    <div class="d-flex align-items-center gap-3">
+                        {% if user.profile and user.profile.photo %}
+                            <img src="{{ user.profile.photo.url }}"
+                                class="rounded-circle"
+                                style="width:56px;height:56px;object-fit:cover;">
                         {% endif %}
                         <div>
-                            <h5 class="card-title mb-0">
-                                <a href="{% url 'profile_detail' r.owner.id %}">{{ r.owner.get_full_name|default:r.owner.username }}</a>
+                            <h5 class="mb-0">
+                                {{ user.get_full_name|default:user.username }}
                             </h5>
-                            <span class="badge bg-primary">{{ r.skill.name }}</span>
                         </div>
                     </div>
-
-                    {% if r.skill.description %}
-                    <p class="card-text text-muted small">{{ r.skill.description }}</p>
+                    {% if user.skills.all %}
+                    <div class="mt-2">
+                        {% for skill in user.skills.all %}
+                            <span class="badge bg-primary">{{ skill.name }}</span>
+                        {% endfor %}
+                    </div>
                     {% endif %}
 
-                    {% if r.has_sessions %}
-                    <p class="text-success small mb-2">Has upcoming sessions - <a href="{% url 'sharer_session_list' r.owner.id %}">view this sharer's sessions</a></p>
-                    {% else %}
-                    <p class="text-muted small mb-2">No upcoming sessions yet.</p>
-                    {% endif %}
-
-                    {% if not r.has_sessions %}
-                        {% if r.my_request %}
-                            {% if r.my_request.status == 'pending' %}
-                            <span class="badge bg-warning text-dark">Request pending</span>
-                            <form method="post" action="{% url 'session_request_cancel' r.my_request.id %}" class="d-inline">
-                                {% csrf_token %}
-                                <button type="submit" class="btn btn-outline-secondary btn-sm ms-1">Cancel</button>
-                            </form>
-                            {% elif r.my_request.status == 'accepted' %}
-                            <span class="badge bg-success">Request accepted!</span>
-                            {% elif r.my_request.status == 'declined' %}
-                            <span class="badge bg-danger">Request declined</span>
-                            {% endif %}
-                        {% else %}
-                        <a href="{% url 'session_request_create' r.skill.id %}" class="btn btn-outline-primary btn-sm">Request Session</a>
-                        {% endif %}
-                    {% endif %}
                 </div>
             </div>
         </div>
         {% endfor %}
     </div>
-    {% else %}
-    <p class="text-muted">No skills found matching "<strong>{{ query }}</strong>".</p>
     {% endif %}
+
+    {% if results.skills %}
+    <h5 class="mt-4">Skills</h5>
+
+    <div class="row row-cols-1 g-3">
+        {% for skill in results.skills %}
+        <div class="col">
+            <div class="card h-100 position-relative">
+                <div class="card-body">
+                    <a href="{% url 'profile_detail' skill.owner.id %}" class="stretched-link"></a>
+
+                    <h5 class="mb-1">{{ skill.name }}</h5>
+                    <p class="text-muted small mb-0">
+                        {{ skill.owner.username }}
+                    </p>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if results.sessions %}
+    <h5 class="mt-4">Sessions</h5>
+    <div class="row row-cols-1 g-3">
+        {% for session in results.sessions %}
+        <div class="col">
+            <div class="card h-100 position-relative">
+                <div class="card-body">
+                    <a href="{% url 'session_detail' session.id %}" class="stretched-link"></a>
+                    <h5 class="mb-1">{{ session.title }}</h5>
+                    <p class="text-muted small mb-0">
+                        hosted by @{{ session.host.username }}
+                    </p>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+
+{% else %}
+
+    <!-- DEFAULT STATE: SHARERS -->
+    <div class="row row-cols-1 row-cols-md-3 g-3">
+
+        {% for sharer in sharers %}
+        <div class="col">
+            <div class="card h-100 position-relative">
+
+                <div class="card-body">
+
+                    <a href="{% url 'profile_detail' sharer.id %}" class="stretched-link"></a>
+
+                    <div class="d-flex align-items-center mb-2">
+
+                        {% if sharer.profile and sharer.profile.photo %}
+                            <img src="{{ sharer.profile.photo.url }}"
+                                class="rounded-circle me-3"
+                                style="width:70px;height:70px;object-fit:cover;">
+                        {% endif %}
+
+                        <h5 class="mb-0">
+                            {{ sharer.get_full_name|default:sharer.username }}
+                        </h5>
+
+                    </div>
+
+                    {% if sharer.profile %}
+                        <p class="text-muted small">
+                            {{ sharer.profile.bio }}
+                        </p>
+                    {% endif %}
+
+                    {% if sharer.skills.all %}
+                        <div>
+                            <small class="text-muted d-block mb-1">Skills:</small>
+                            {% for skill in sharer.skills.all %}
+                                <span class="badge bg-success me-1 mb-1">
+                                    {{ skill.name }}
+                                </span>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+
+    </div>
+
 {% endif %}
 {% endblock %}

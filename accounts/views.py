@@ -113,75 +113,97 @@ def profile_detail(request, user_id): # view other profile - pretty basic, read 
 @login_required
 def skill_search(request):
     query = request.GET.get('q', '').strip()
-    results = []  # list of dicts: {skill, owner, profile, has_sessions, my_request}
+
+    results = {
+        "skills": [],
+        "users": [],
+        "sessions": []
+    }
+
+    sharers = []
 
     if query:
-        skills = (
-            Skill.objects.filter(name__icontains=query)
-            .exclude(owner=request.user)  # don't show own skills
-            .select_related('owner')
-        )
-        # fetch current user's pending requests in bulk
-        my_requests = {
-            sr.skill_id: sr
-            for sr in SessionRequest.objects.filter(
-                requester=request.user,
-                skill__in=skills,
-            )
-        }
-        profiles = {
-            p.user_id: p
-            for p in Profile.objects.filter(user__in=[s.owner for s in skills])
-        }
-        for skill in skills:
-            results.append({
-                'skill': skill,
-                'owner': skill.owner,
-                'profile': profiles.get(skill.owner_id),
-                'has_sessions': skill.has_upcoming_sessions(),
-                'my_request': my_requests.get(skill.id),
-            })
+        # -------------------
+        # FUZZY GLOBAL SEARCH
+        # -------------------
 
-    return render(request, 'accounts/skill_search.html', {
-        'query': query,
-        'results': results,
-    })
-
-@login_required
-def profile_search(request):
-    query = request.GET.get('q') # get the text entered into the search bar
-    if query:
-        # search by username, first name, or last name using Q module
-        name_results = User.objects.filter(
-            # dynamically generate Q objects
-            # {field}__icontains
+        # USERS
+        users = User.objects.filter(
             Q(username__icontains=query) |
-            Q(first_name__icontains=query) |
-            Q(last_name__icontains=query)
-        ).distinct() # get only one
+            Q(profile__bio__icontains=query)
+        ).distinct()
 
-        skill_results = Skill.objects.filter(
-            name__icontains=query
-            ).select_related('owner')
+        # SKILLS
+        skills = Skill.objects.filter(
+            Q(name__icontains=query) |
+            Q(description__icontains=query)
+        ).exclude(owner=request.user).select_related('owner')
 
-        session_results = Session.objects.filter(
+        # SESSIONS (if you have title/description)
+        sessions = Session.objects.filter(
             Q(title__icontains=query) |
             Q(description__icontains=query),
             is_cancelled=False,
             is_private=False,
-            ).select_related('host', 'skill')
+            date_time__gte=timezone.now()
+        )
+
+        results["users"] = users
+        results["skills"] = skills
+        results["sessions"] = sessions
+
     else:
-        name_results = User.objects.none()
-        skill_results = Skill.objects.none()
-        session_results = Session.objects.none()
+        # DEFAULT VIEW = SHARERS
+        sharers = (
+            User.objects.all()
+            .exclude(id=request.user.id)
+            .prefetch_related('skills', 'profile')
+        )
 
-
-    return render(request, 'accounts/search_results.html', {
-        'name_results': name_results,
-        'skill_results': skill_results,
-        'session_results': session_results,
-        'query': query
+    return render(request, "accounts/skill_search.html", {
+        "query": query,
+        "results": results,
+        "sharers": sharers,
     })
+
+@login_required
+def profile_search(request):
+    query = request.GET.get("q", "").strip()
+
+    return redirect(f"/skills/search/?q={query}")
+    # query = request.GET.get('q') # get the text entered into the search bar
+    # if query:
+    #     # search by username, first name, or last name using Q module
+    #     name_results = User.objects.filter(
+    #         # dynamically generate Q objects
+    #         # {field}__icontains
+    #         Q(username__icontains=query) |
+    #         Q(first_name__icontains=query) |
+    #         Q(last_name__icontains=query)
+    #     ).distinct() # get only one
+
+    #     skill_results = Skill.objects.filter(
+    #         name__icontains=query
+    #         ).select_related('owner')
+
+    #     session_results = Session.objects.filter(
+    #         Q(title__icontains=query) |
+    #         Q(description__icontains=query),
+    #         is_cancelled=False,
+    #         is_private=False,
+    #         ).select_related('host', 'skill')
+    # else:
+    #     name_results = User.objects.none()
+    #     skill_results = Skill.objects.none()
+    #     session_results = Session.objects.none()
+
+
+    # return render(request, 'accounts/search_results.html', {
+    #     'name_results': name_results,
+    #     'skill_results': skill_results,
+    #     'session_results': session_results,
+    #     'query': query
+    # })
 
 
 @login_required
