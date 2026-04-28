@@ -18,5 +18,4 @@ urlpatterns = [
     path('inbox/', inbox, name='inbox'),
     path('messages/send/<int:receiver_id>/', send_message, name='send_message'),
     path('messages/chat/<int:receiver_id>/', send_message, name='chat_detail'),
-    path('sharers/', browse_sharers, name='browse_sharers')
 ]

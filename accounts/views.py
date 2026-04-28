@@ -3,14 +3,10 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.contrib import messages
 from django.utils import timezone
-from django.db.models import Q
-from .models import Profile, Skill, SessionRequest
+from django.db.models import Q, Count
+from .models import Profile, Skill, SessionRequest, PrivateMessage
 from .forms import ProfileForm, SkillForm, SessionRequestForm
-from django.db.models import Q, Max
-from django.contrib.auth.models import User
-from .models import Profile, Skill, PrivateMessage
-from .forms import ProfileForm, SkillForm
-from skillsessions.models import Session
+from skillsessions.models import Session, SessionMembership
 def login_page(request):
     if request.user.is_authenticated:
         return redirect('session_list')
@@ -85,84 +81,125 @@ def profile_detail(request, user_id): # view other profile - pretty basic, read 
     profile_user = get_object_or_404(User, id=user_id)
     profile = Profile.objects.filter(user=profile_user).first()
     skills = Skill.objects.filter(owner=profile_user)
+    upcoming_sessions = (
+        Session.objects
+        .filter(host=profile_user, date_time__gte=timezone.now(), is_cancelled=False, is_private=False)
+        .select_related('skill')
+        .order_by('date_time')
+    )
+    skill_rows = []
+    if request.user.is_authenticated and request.user != profile_user:
+        my_requests = {
+            sr.skill_id: sr
+            for sr in SessionRequest.objects.filter(requester=request.user, skill__in=skills)
+        }
+        for skill in skills:
+            skill_rows.append({'skill': skill, 'my_request': my_requests.get(skill.id)})
+    else:
+        for skill in skills:
+            skill_rows.append({'skill': skill, 'my_request': None})
     return render(request, 'accounts/profile_detail.html', {
         'profile_user': profile_user,
         'profile': profile,
-        'skills': skills,
+        'skill_rows': skill_rows,
+        'upcoming_sessions': upcoming_sessions,
     })
 
 
 @login_required
 def skill_search(request):
     query = request.GET.get('q', '').strip()
-    results = []  # list of dicts: {skill, owner, profile, has_sessions, my_request}
+
+    results = {
+        "skills": [],
+        "users": [],
+        "sessions": []
+    }
+
+    sharers = []
 
     if query:
-        skills = (
-            Skill.objects.filter(name__icontains=query)
-            .exclude(owner=request.user)  # don't show own skills
-            .select_related('owner')
-        )
-        # fetch current user's pending requests in bulk
-        my_requests = {
-            sr.skill_id: sr
-            for sr in SessionRequest.objects.filter(
-                requester=request.user,
-                skill__in=skills,
-            )
-        }
-        profiles = {
-            p.user_id: p
-            for p in Profile.objects.filter(user__in=[s.owner for s in skills])
-        }
-        for skill in skills:
-            results.append({
-                'skill': skill,
-                'owner': skill.owner,
-                'profile': profiles.get(skill.owner_id),
-                'has_sessions': skill.has_upcoming_sessions(),
-                'my_request': my_requests.get(skill.id),
-            })
+        # -------------------
+        # FUZZY GLOBAL SEARCH
+        # -------------------
 
-    return render(request, 'accounts/skill_search.html', {
-        'query': query,
-        'results': results,
+        # USERS
+        users = User.objects.filter(
+            Q(username__icontains=query) |
+            Q(profile__bio__icontains=query)
+        ).exclude(id=request.user.id)
+
+        # SKILLS
+        skills = Skill.objects.filter(
+            Q(name__icontains=query) |
+            Q(description__icontains=query)
+        ).exclude(owner=request.user).select_related('owner')
+
+        # SESSIONS (if you have title/description)
+        sessions = Session.objects.filter(
+            Q(title__icontains=query) |
+            Q(description__icontains=query),
+            is_cancelled=False,
+            is_private=False,
+            date_time__gte=timezone.now()
+        )#.exclude(host=request.user).select_related('skill', 'host')
+
+        results["users"] = users
+        results["skills"] = skills
+        results["sessions"] = sessions
+
+    else:
+        # DEFAULT VIEW = SHARERS
+        sharers = (
+            User.objects.all()
+            .exclude(id=request.user.id)
+            .prefetch_related('skills', 'profile')
+        )
+
+    return render(request, "accounts/skill_search.html", {
+        "query": query,
+        "results": results,
+        "sharers": sharers,
     })
 
 @login_required
 def profile_search(request):
-    query = request.GET.get('q') # get the text entered into the search bar
-    if query:
-        # search by username, first name, or last name using Q module
-        name_results = User.objects.filter(
-            # dynamically generate Q objects
-            # {field}__icontains
-            Q(username__icontains=query) |
-            Q(first_name__icontains=query) |
-            Q(last_name__icontains=query)
-        ).distinct() # get only one
+    query = request.GET.get("q", "").strip()
 
-        skill_results = Skill.objects.filter(
-            name__icontains=query
-            ).select_related('owner')
+    return redirect(f"/skills/search/?q={query}")
+    # query = request.GET.get('q') # get the text entered into the search bar
+    # if query:
+    #     # search by username, first name, or last name using Q module
+    #     name_results = User.objects.filter(
+    #         # dynamically generate Q objects
+    #         # {field}__icontains
+    #         Q(username__icontains=query) |
+    #         Q(first_name__icontains=query) |
+    #         Q(last_name__icontains=query)
+    #     ).distinct() # get only one
 
-        session_results = Session.objects.filter(
-            Q(title__icontains=query) |
-            Q(description__icontains=query),
-            is_cancelled=False
-            ).select_related('host', 'skill')
-    else:
-        name_results = User.objects.none()
-        skill_results = Skill.objects.none()
-        session_results = Session.objects.none()
+    #     skill_results = Skill.objects.filter(
+    #         name__icontains=query
+    #         ).select_related('owner')
+
+    #     session_results = Session.objects.filter(
+    #         Q(title__icontains=query) |
+    #         Q(description__icontains=query),
+    #         is_cancelled=False,
+    #         is_private=False,
+    #         ).select_related('host', 'skill')
+    # else:
+    #     name_results = User.objects.none()
+    #     skill_results = Skill.objects.none()
+    #     session_results = Session.objects.none()
 
 
-    return render(request, 'accounts/search_results.html', {
-        'name_results': name_results,
-        'skill_results': skill_results,
-        'session_results': session_results,
-        'query': query
-    })
+    # return render(request, 'accounts/search_results.html', {
+    #     'name_results': name_results,
+    #     'skill_results': skill_results,
+    #     'session_results': session_results,
+    #     'query': query
+    # })
 
 
 @login_required
@@ -206,11 +243,16 @@ def session_request_cancel(request, request_id):
 
 @login_required
 def session_requests_inbox(request):
-    # requests sent to the current user (as skill owner)
     incoming = (
         SessionRequest.objects
         .filter(skill__owner=request.user, status=SessionRequest.STATUS_PENDING)
         .select_related('requester', 'skill')
+        .order_by('-created_at')
+    )
+    outgoing = (
+        SessionRequest.objects
+        .filter(requester=request.user, status=SessionRequest.STATUS_PENDING)
+        .select_related('skill', 'skill__owner')
         .order_by('-created_at')
     )
 
@@ -218,18 +260,46 @@ def session_requests_inbox(request):
         sr_id = request.POST.get('request_id')
         action = request.POST.get('action')
         sr = get_object_or_404(SessionRequest, id=sr_id, skill__owner=request.user)
+        requester_name = sr.requester.get_full_name() or sr.requester.username
         if action == 'accept':
-            sr.status = SessionRequest.STATUS_ACCEPTED
-            sr.save()
-            messages.success(request, f'Accepted request from {sr.requester.get_full_name() or sr.requester.username}.')
+            session = Session.objects.create(
+                skill=sr.skill,
+                host=sr.skill.owner,
+                title=sr.proposed_title,
+                description=sr.proposed_description or '',
+                location=sr.proposed_location,
+                date_time=sr.proposed_date_time,
+                duration_minutes=sr.proposed_duration_minutes,
+                capacity=sr.proposed_capacity,
+                is_private=True,
+            )
+            SessionMembership.objects.create(session=session, user=sr.requester)
+            host_name = request.user.get_full_name() or request.user.username
+            PrivateMessage.objects.create(
+                sender=request.user,
+                receiver=sr.requester,
+                content=(
+                    f'Your session request for "{sr.skill.name}" was accepted by {host_name}! '
+                    f'You\'ve been added to "{session.title}" on {session.date_time.strftime("%b %d, %Y at %I:%M %p")}. '
+                    f'Check your Sessions page to view it.'
+                ),
+            )
+            sr.delete()
+            messages.success(request, f'Accepted! Session "{session.title}" created and {requester_name} has been added.')
         elif action == 'decline':
-            sr.status = SessionRequest.STATUS_DECLINED
-            sr.save()
-            messages.success(request, f'Declined request from {sr.requester.get_full_name() or sr.requester.username}.')
+            host_name = request.user.get_full_name() or request.user.username
+            PrivateMessage.objects.create(
+                sender=request.user,
+                receiver=sr.requester,
+                content=f'Your session request for "{sr.skill.name}" was declined by {host_name}.',
+            )
+            sr.delete()
+            messages.success(request, f'Declined request from {requester_name}.')
         return redirect('session_requests_inbox')
 
     return render(request, 'accounts/session_requests_inbox.html', {
         'incoming': incoming,
+        'outgoing': outgoing,
     })
 
 @login_required
@@ -238,6 +308,14 @@ def inbox(request):
     all_messages = PrivateMessage.objects.filter(
         Q(sender=request.user) | Q(receiver=request.user)
     ).order_by('-timestamp')
+
+    unread_counts = {
+        row['sender_id']: row['unread_count']
+        for row in PrivateMessage.objects.filter(
+            receiver=request.user,
+            is_read=False,
+        ).values('sender_id').annotate(unread_count=Count('id'))
+    }
 
     # we want to keep only one thread per sender - receiver open
     users_seen = set()
@@ -253,6 +331,8 @@ def inbox(request):
             other_user = msg.sender
 
         if other_user.id not in users_seen:
+            msg.other_user = other_user
+            msg.thread_unread_count = unread_counts.get(other_user.id, 0)
             latest_messages.append(msg)
             users_seen.add(other_user.id)
 
@@ -272,6 +352,12 @@ def send_message(request, receiver_id):
                 content=content
             )
             return redirect('chat_detail', receiver_id=receiver_id)
+
+    PrivateMessage.objects.filter(
+        sender=receiver,
+        receiver=request.user,
+        is_read=False,
+    ).update(is_read=True)
 
     # get chat history between two users
     chat_history = PrivateMessage.objects.filter(

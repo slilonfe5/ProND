@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
+from django.core.validators import MinValueValidator
 
 
 class Profile(models.Model): # Profile model - contains user info + bio, 1:1 relation with django User
@@ -48,6 +49,12 @@ class SessionRequest(models.Model):
     requester = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sent_session_requests')
     skill = models.ForeignKey(Skill, on_delete=models.CASCADE, related_name='session_requests')
     message = models.TextField(blank=True, max_length=500)
+    proposed_title = models.CharField(max_length=200, default='')
+    proposed_description = models.TextField(blank=True, default='')
+    proposed_location = models.CharField(max_length=200, default='')
+    proposed_date_time = models.DateTimeField(null=True, blank=True)
+    proposed_duration_minutes = models.PositiveIntegerField(null=True, blank=True, validators=[MinValueValidator(5)])
+    proposed_capacity = models.PositiveIntegerField(null=True, blank=True, validators=[MinValueValidator(1)])
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default=STATUS_PENDING)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -63,5 +70,6 @@ class PrivateMessage(models.Model):
     receiver = models.ForeignKey(User, on_delete=models.CASCADE, related_name='received_messages') # ptr to receiver
     content = models.TextField()
     timestamp = models.DateTimeField(auto_now_add=True)
+    is_read = models.BooleanField(default=False)
     def __str__(self):
         return f"From {self.sender} to {self.receiver}"

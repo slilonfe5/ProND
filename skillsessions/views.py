@@ -10,6 +10,7 @@ from django.db import transaction
 from django.http import HttpResponseForbidden
 from django.views.decorators.http import require_POST
 from django.urls import reverse
+from django.db.models import Q
 from accounts.models import Skill, PrivateMessage
 from .models import Session, SessionMembership, SessionMessage
 from .forms import SessionForm, SessionMessageForm, SessionMessageEditForm
@@ -48,9 +49,12 @@ def notify_members_of_cancellation(session, reason):
 @login_required
 def session_list(request): # main page - list all sessions for calendar + list view
     now = timezone.now()
+    visible = Q(is_private=False) | Q(host=request.user) | Q(memberships__user=request.user)
     all_sessions = (
         Session.objects
         .filter(is_cancelled=False)
+        .filter(visible)
+        .distinct()
         .order_by('date_time')
         .select_related('skill', 'host')
     )
@@ -85,15 +89,63 @@ def session_list(request): # main page - list all sessions for calendar + list v
     return render(request, 'sessions/session_list.html', {
         'sessions': sessions,
         'calendar_events': calendar_events,
-        'page_title': 'Upcoming Sessions',
+        'page_title': 'All Sessions',
         'show_calendar': True,
         'empty_message': 'No upcoming sessions.',
     })
 
 
 @login_required
+def my_sessions(request):
+    now = timezone.now()
+    mine = Q(host=request.user) | Q(memberships__user=request.user)
+    all_sessions = (
+        Session.objects
+        .filter(is_cancelled=False)
+        .filter(mine)
+        .distinct()
+        .order_by('date_time')
+        .select_related('skill', 'host')
+    )
+    sessions = all_sessions.filter(date_time__gte=now)
+
+    joined_ids = set(
+        SessionMembership.objects.filter(
+            user=request.user
+        ).values_list('session_id', flat=True)
+    )
+
+    calendar_events = []
+    for session in all_sessions:
+        if session.date_time < now:
+            status = 'past'
+        elif session.host == request.user:
+            status = 'hosting'
+        elif session.pk in joined_ids:
+            status = 'joined'
+        else:
+            status = 'open'
+
+        calendar_events.append({
+            'title': session.title,
+            'start': session.date_time.isoformat(),
+            'url': reverse('session_detail', args=[session.pk]),
+            'status': status,
+        })
+
+    return render(request, 'sessions/session_list.html', {
+        'sessions': sessions,
+        'calendar_events': calendar_events,
+        'page_title': 'My Sessions',
+        'show_calendar': True,
+        'empty_message': 'You are not hosting or attending any upcoming sessions.',
+    })
+
+
+@login_required
 def sharer_session_list(request, user_id):
     sharer = get_object_or_404(User, id=user_id)
+    visible = Q(is_private=False) | Q(host=request.user) | Q(memberships__user=request.user)
     sessions = (
         Session.objects
         .filter(
@@ -101,6 +153,8 @@ def sharer_session_list(request, user_id):
             is_cancelled=False,
             date_time__gte=timezone.now(),
         )
+        .filter(visible)
+        .distinct()
         .order_by('date_time')
         .select_related('skill', 'host')
     )
@@ -157,6 +211,10 @@ def session_detail(request, pk): # view session details. conditional buttons bas
 
     is_host = request.user == session.host
     is_member = memberships.filter(user=request.user).exists()
+
+    if session.is_private and not is_host and not is_member:
+        messages.error(request, 'That session is private.')
+        return redirect('session_list')
     is_full = membership_count >= session.capacity
     is_past = session.date_time < timezone.now()
     can_access_chat = session.user_can_access_chat(request.user)
@@ -195,6 +253,10 @@ def session_join(request, pk): # POST only - join session if not host, not alrea
     if request.user == session.host:
         messages.error(request, 'You cannot join your own session.')
         return redirect('session_detail', pk=pk)
+
+    if session.is_private:
+        messages.error(request, 'This session is private.')
+        return redirect('session_list')
 
     if session.date_time < timezone.now():
         messages.error(request, 'This session has already passed.')
