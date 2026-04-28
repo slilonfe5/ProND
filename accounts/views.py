@@ -3,13 +3,9 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.contrib import messages
 from django.utils import timezone
-from django.db.models import Q
-from .models import Profile, Skill, SessionRequest
+from django.db.models import Q, Count
+from .models import Profile, Skill, SessionRequest, PrivateMessage
 from .forms import ProfileForm, SkillForm, SessionRequestForm
-from django.db.models import Q, Max
-from django.contrib.auth.models import User
-from .models import Profile, Skill, PrivateMessage
-from .forms import ProfileForm, SkillForm
 from skillsessions.models import Session, SessionMembership
 def login_page(request):
     if request.user.is_authenticated:
@@ -313,6 +309,14 @@ def inbox(request):
         Q(sender=request.user) | Q(receiver=request.user)
     ).order_by('-timestamp')
 
+    unread_counts = {
+        row['sender_id']: row['unread_count']
+        for row in PrivateMessage.objects.filter(
+            receiver=request.user,
+            is_read=False,
+        ).values('sender_id').annotate(unread_count=Count('id'))
+    }
+
     # we want to keep only one thread per sender - receiver open
     users_seen = set()
     latest_messages = []
@@ -327,6 +331,8 @@ def inbox(request):
             other_user = msg.sender
 
         if other_user.id not in users_seen:
+            msg.other_user = other_user
+            msg.thread_unread_count = unread_counts.get(other_user.id, 0)
             latest_messages.append(msg)
             users_seen.add(other_user.id)
 
@@ -346,6 +352,12 @@ def send_message(request, receiver_id):
                 content=content
             )
             return redirect('chat_detail', receiver_id=receiver_id)
+
+    PrivateMessage.objects.filter(
+        sender=receiver,
+        receiver=request.user,
+        is_read=False,
+    ).update(is_read=True)
 
     # get chat history between two users
     chat_history = PrivateMessage.objects.filter(

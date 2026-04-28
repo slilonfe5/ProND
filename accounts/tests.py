@@ -226,3 +226,72 @@ class InboxRenderingTest(TestCase):
         # objects instead of real flash messages, so 'Profile updated.'
         # never appears in the rendered page.
         self.assertContains(response, 'Profile updated.')
+
+    def test_inbox_shows_unread_thread_badge(self):
+        PrivateMessage.objects.create(
+            sender=self.bob, receiver=self.alice, content='Unread hello'
+        )
+        self.client.login(username='alice', password='testpass123')
+        response = self.client.get(reverse('inbox'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '1 new')
+
+
+class MessageReadStateTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.alice = User.objects.create_user(username='alice', password='testpass123')
+        self.bob = User.objects.create_user(username='bob', password='testpass123')
+
+    def test_opening_chat_marks_incoming_messages_as_read(self):
+        message = PrivateMessage.objects.create(
+            sender=self.bob,
+            receiver=self.alice,
+            content='Hello Alice',
+        )
+        self.client.login(username='alice', password='testpass123')
+        response = self.client.get(reverse('chat_detail', args=[self.bob.id]))
+        self.assertEqual(response.status_code, 200)
+        message.refresh_from_db()
+        self.assertTrue(message.is_read)
+
+    def test_sending_message_does_not_mark_outgoing_as_read(self):
+        self.client.login(username='alice', password='testpass123')
+        self.client.post(reverse('chat_detail', args=[self.bob.id]), {
+            'content': 'Hi Bob',
+        })
+        message = PrivateMessage.objects.get(sender=self.alice, receiver=self.bob)
+        self.assertFalse(message.is_read)
+
+
+class NavbarNotificationTest(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.host = User.objects.create_user(username='host', password='testpass123')
+        self.requester = User.objects.create_user(username='requester', password='testpass123')
+        self.other = User.objects.create_user(username='other', password='testpass123')
+        skill = Skill.objects.create(owner=self.host, name='Python')
+        from .models import SessionRequest
+        SessionRequest.objects.create(
+            requester=self.requester,
+            skill=skill,
+            proposed_title='Need Help',
+            proposed_location='Room 101',
+            proposed_date_time=timezone.now() + timedelta(days=1),
+            proposed_duration_minutes=60,
+            proposed_capacity=1,
+        )
+        PrivateMessage.objects.create(
+            sender=self.other,
+            receiver=self.host,
+            content='New message',
+        )
+
+    def test_navbar_shows_pending_request_and_unread_message_counts(self):
+        self.client.login(username='host', password='testpass123')
+        response = self.client.get(reverse('profile_view'))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['navbar_pending_request_count'], 1)
+        self.assertEqual(response.context['navbar_unread_message_count'], 1)
+        self.assertContains(response, 'Requests')
+        self.assertContains(response, 'My Messages')

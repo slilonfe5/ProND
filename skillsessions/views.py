@@ -89,9 +89,56 @@ def session_list(request): # main page - list all sessions for calendar + list v
     return render(request, 'sessions/session_list.html', {
         'sessions': sessions,
         'calendar_events': calendar_events,
-        'page_title': 'Upcoming Sessions',
+        'page_title': 'All Sessions',
         'show_calendar': True,
         'empty_message': 'No upcoming sessions.',
+    })
+
+
+@login_required
+def my_sessions(request):
+    now = timezone.now()
+    mine = Q(host=request.user) | Q(memberships__user=request.user)
+    all_sessions = (
+        Session.objects
+        .filter(is_cancelled=False)
+        .filter(mine)
+        .distinct()
+        .order_by('date_time')
+        .select_related('skill', 'host')
+    )
+    sessions = all_sessions.filter(date_time__gte=now)
+
+    joined_ids = set(
+        SessionMembership.objects.filter(
+            user=request.user
+        ).values_list('session_id', flat=True)
+    )
+
+    calendar_events = []
+    for session in all_sessions:
+        if session.date_time < now:
+            status = 'past'
+        elif session.host == request.user:
+            status = 'hosting'
+        elif session.pk in joined_ids:
+            status = 'joined'
+        else:
+            status = 'open'
+
+        calendar_events.append({
+            'title': session.title,
+            'start': session.date_time.isoformat(),
+            'url': reverse('session_detail', args=[session.pk]),
+            'status': status,
+        })
+
+    return render(request, 'sessions/session_list.html', {
+        'sessions': sessions,
+        'calendar_events': calendar_events,
+        'page_title': 'My Sessions',
+        'show_calendar': True,
+        'empty_message': 'You are not hosting or attending any upcoming sessions.',
     })
 
 

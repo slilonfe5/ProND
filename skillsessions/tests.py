@@ -246,6 +246,50 @@ class SessionListViewTest(TestCase):
         self.assertIn(visible, response.context['sessions'])
         self.assertNotIn(cancelled, response.context['sessions'])
 
+    def test_my_sessions_shows_only_hosted_and_joined_sessions(self):
+        self.client.login(username='testuser', password='testpass123')
+        other_user = User.objects.create_user(username='otherhost', password='testpass123')
+        other_skill = Skill.objects.create(owner=other_user, name='Guitar')
+
+        hosted = Session.objects.create(
+            skill=self.skill, host=self.user, title='Hosted By Me',
+            location='Room 1', date_time=timezone.now() + timedelta(days=1),
+            duration_minutes=60, capacity=5,
+        )
+        joined = Session.objects.create(
+            skill=other_skill, host=other_user, title='Joined By Me',
+            location='Room 2', date_time=timezone.now() + timedelta(days=1),
+            duration_minutes=60, capacity=5,
+        )
+        not_mine = Session.objects.create(
+            skill=other_skill, host=other_user, title='Not Mine',
+            location='Room 3', date_time=timezone.now() + timedelta(days=1),
+            duration_minutes=60, capacity=5,
+        )
+        SessionMembership.objects.create(session=joined, user=self.user)
+
+        response = self.client.get(reverse('my_sessions'))
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(hosted, response.context['sessions'])
+        self.assertIn(joined, response.context['sessions'])
+        self.assertNotIn(not_mine, response.context['sessions'])
+        self.assertEqual(response.context['page_title'], 'My Sessions')
+
+    def test_my_sessions_includes_private_joined_sessions(self):
+        self.client.login(username='testuser', password='testpass123')
+        other_user = User.objects.create_user(username='otherhost', password='testpass123')
+        other_skill = Skill.objects.create(owner=other_user, name='Guitar')
+        private_joined = Session.objects.create(
+            skill=other_skill, host=other_user, title='Private Session',
+            location='Room 2', date_time=timezone.now() + timedelta(days=1),
+            duration_minutes=60, capacity=5, is_private=True,
+        )
+        SessionMembership.objects.create(session=private_joined, user=self.user)
+
+        response = self.client.get(reverse('my_sessions'))
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(private_joined, response.context['sessions'])
+
 
 class SessionCreateViewTest(TestCase):
     def setUp(self):

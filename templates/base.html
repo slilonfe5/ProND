@@ -43,13 +43,23 @@
                     </li>
                     
                     <li class="nav-item">
-                        <a class="nav-link" href="{% url 'session_requests_inbox' %}">Requests</a>
+                        <a class="nav-link" href="{% url 'session_requests_inbox' %}">
+                            Requests
+                            {% if navbar_pending_request_count %}
+                            <span class="badge bg-danger ms-1">{{ navbar_pending_request_count }}</span>
+                            {% endif %}
+                        </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{% url 'session_list' %}">My Sessions</a>
+                        <a class="nav-link" href="{% url 'my_sessions' %}">My Sessions</a>
                     </li>
                     <li>
-                        <a class="nav-link" href="{% url 'inbox' %}">My Messages</a>
+                        <a class="nav-link" href="{% url 'inbox' %}">
+                            My Messages
+                            {% if navbar_unread_message_count %}
+                            <span class="badge bg-danger ms-1">{{ navbar_unread_message_count }}</span>
+                            {% endif %}
+                        </a>
                     </li>
                 </ul>
                 <ul class="navbar-nav">
